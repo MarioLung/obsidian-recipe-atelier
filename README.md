@@ -87,7 +87,7 @@ Language, recipe folder, ingredient folder, image folder, weight unit in percent
 - On iOS/iPadOS the browser-style download of an export file may be unavailable – use **Save to vault** and share the file from the Files app.
 
 ## Privacy
-The plugin makes **no network requests**, has **no telemetry** and only reads and writes files inside your vault.
+The plugin works **completely offline and without any account** (no sign-up, no subscription, no payment). It makes **no network requests**, has **no telemetry**, shows **no ads** and does not install or update anything by itself. It only reads and writes files inside your vault.
 
 ## Permissions and behavior
 
