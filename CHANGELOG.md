@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1
+- Stylesheet: removed `!important` (higher selector specificity instead).
+- Release assets now carry GitHub build provenance attestations.
+
 ## 1.0.0
 - First public release.
 - Recipes with several parts, baker's percentages and amount mode, piece/portion/tray scaling.

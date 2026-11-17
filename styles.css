@@ -95,8 +95,10 @@
 /* Editor */
 .rm-ed-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
 .rm-ed-bar .rm-status { margin-left: auto; }
-.rm-editor input.rm-title-input { width: 100%; font-size: 1.9em; font-weight: 700; border: none !important; border-bottom: 2px solid var(--background-modifier-border) !important; border-radius: 0 !important; background: transparent !important; padding: 6px 0; margin-bottom: 14px; box-shadow: none !important; }
-.rm-editor input.rm-title-input:focus { border-bottom-color: var(--interactive-accent) !important; }
+.rm-editor input.rm-title-input[type="text"] { width: 100%; font-size: 1.9em; font-weight: 700; border: none; border-bottom: 2px solid var(--background-modifier-border); border-radius: 0; background: transparent; padding: 6px 0; margin-bottom: 14px; box-shadow: none; }
+.rm-editor input.rm-title-input[type="text"]:hover,
+.rm-editor input.rm-title-input[type="text"]:focus { background: transparent; box-shadow: none; }
+.rm-editor input.rm-title-input[type="text"]:focus { border-bottom-color: var(--interactive-accent); }
 .rm-row { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; align-items: flex-end; }
 .rm-field { flex: 1 1 200px; min-width: 160px; }
 .rm-top { display: grid; grid-template-columns: 260px 1fr; gap: 20px; margin-top: 8px; }
@@ -144,7 +146,7 @@
 .rm-export-count { margin: 6px 0 10px; font-size: 0.85em; }
 
 /* Hilfsklassen (statt Inline-Styles) */
-.rm-hidden { display: none !important; }
+.rm-export-row.rm-hidden { display: none; }
 .rm-w90 { width: 90px; }
 .rm-w100 { width: 100%; }
 .rm-block-btn { display: block; margin-bottom: 6px; }
@@ -167,7 +169,7 @@ body.is-mobile .rm-tile-actions { display: flex; }
   .rm-part-cfg .rm-field { flex: 1 1 100%; }
   .rm-param-row { grid-template-columns: 1fr 1fr auto; }
   .rm-ed-bar { flex-wrap: wrap; gap: 6px; }
-  .rm-editor input.rm-title-input { font-size: 1.5em; }
+  .rm-editor input.rm-title-input[type="text"] { font-size: 1.5em; }
   .rm-table-wrap { -webkit-overflow-scrolling: touch; }
 }
 body.is-mobile .rm-icon-btn { padding: 8px; }
