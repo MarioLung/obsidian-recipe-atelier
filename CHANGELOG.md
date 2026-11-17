@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.3
+- Added CONTRIBUTING.md (contribution guide). No functional changes.
+
 ## 1.0.2
 - The plugin no longer enumerates the whole vault: recipes and ingredients are looked up only in the configured recipe and ingredient folders.
 
