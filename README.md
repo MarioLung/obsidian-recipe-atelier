@@ -6,18 +6,18 @@ Recipes are normal notes in your vault, ingredients are normal notes with proper
 
 > **Languages:** English and German (Deutsch). The interface follows the Obsidian language automatically and can be switched in the plugin settings.
 
-![Dashboard](docs/screenshots/01-dashboard.png)
+![Dashboard](https://raw.githubusercontent.com/MarioLung/obsidian-recipe-manager/main/docs/screenshots/01-dashboard.png)
 
 ## Features
 
 ### Recipes with several parts
 - A recipe can consist of any number of **parts** (e.g. *dough*, *laminating fat*, *filling*, *glaze*, *sour dough*, *soaker*).
 - **Percent mode (baker's percentages):** every ingredient has a percentage of a reference (one ingredient, a free base amount, or the total of another part). Amounts are calculated. Change any amount and the whole part is rescaled proportionally.
-- **Amount mode:** type amounts in `g`, `kg`, `ml`, `l`, `pcs.`, `EL`, `TL`, … and the percentages are calculated.
+- **Amount mode:** type amounts in `g`, `kg`, `ml`, `l`, `pcs.`, `tbsp`, `tsp`, … and the percentages are calculated.
 - **Linked parts:** an ingredient can point to the sum of another part (e.g. *Poolish* inside the final dough).
 - Notes per ingredient (e.g. “5 pieces”, “room temperature”).
 
-![Recipe view](docs/screenshots/02-recipe-view.png)
+![Recipe view](https://raw.githubusercontent.com/MarioLung/obsidian-recipe-manager/main/docs/screenshots/02-recipe-view.png)
 
 ### Scaling
 - **Pieces:** set a piece weight, then change the number of pieces – every amount follows. Optional baking loss gives the baked weight.
@@ -25,7 +25,7 @@ Recipes are normal notes in your vault, ingredients are normal notes with proper
 - **Filling per piece:** a part that is not part of the total weight can be driven by the piece count (e.g. 20 g filling per piece).
 - In the recipe view you can scale *temporarily* with a factor or a target piece count without changing the recipe.
 
-![Alternatives and scaling](docs/screenshots/03-recipe-scaled.png)
+![Alternatives and scaling](https://raw.githubusercontent.com/MarioLung/obsidian-recipe-manager/main/docs/screenshots/03-recipe-scaled.png)
 
 ### Alternatives and variants
 - **Alternatives:** parts with the same group name (e.g. *Filling*) are shown as tabs – pick one, the costs follow the selection.
@@ -35,32 +35,32 @@ Recipes are normal notes in your vault, ingredients are normal notes with proper
 - Ingredient database: category, supplier **with website link**, packaging unit, package weight, price per package, article number, allergens.
 - Price per kg / piece is calculated; recipes show **material cost** per recipe, per piece, per portion and per tray.
 
-![Ingredients](docs/screenshots/07-ingredients.png)
+![Ingredients](https://raw.githubusercontent.com/MarioLung/obsidian-recipe-manager/main/docs/screenshots/07-ingredients.png)
 
 ### Photos and steps
 - Photo of the finished product, photo for every working step (file picker or drag & drop).
 - Free-form parameters (dough temperature, proofing, baking temperature, baking time, program, …).
 
-![Editor](docs/screenshots/04-editor.png)
+![Editor](https://raw.githubusercontent.com/MarioLung/obsidian-recipe-manager/main/docs/screenshots/04-editor.png)
 
 ### Export and import
 - Export **all or selected recipes** with the ingredients they use and their images into **one file** (`*.rmbundle.json`).
 - Import with preview; existing recipes can be skipped, overwritten or imported as copies.
 
-![Export](docs/screenshots/08-export.png)
+![Export](https://raw.githubusercontent.com/MarioLung/obsidian-recipe-manager/main/docs/screenshots/08-export.png)
 
 ### Works everywhere
 Light and dark themes, phone and tablet layouts, no Node/Electron APIs – so it runs on every Obsidian platform.
 
 | Dashboard | Recipe | Editor |
 |---|---|---|
-| ![](docs/screenshots/m1-dashboard.png) | ![](docs/screenshots/m2-recipe.png) | ![](docs/screenshots/m3-editor.png) |
+| ![](https://raw.githubusercontent.com/MarioLung/obsidian-recipe-manager/main/docs/screenshots/m1-dashboard.png) | ![](https://raw.githubusercontent.com/MarioLung/obsidian-recipe-manager/main/docs/screenshots/m2-recipe.png) | ![](https://raw.githubusercontent.com/MarioLung/obsidian-recipe-manager/main/docs/screenshots/m3-editor.png) |
 
 ## Installation
 
 **From the community plugin browser** (after approval): *Settings → Community plugins → Browse → “Recipe Manager” → Install → Enable*.
 
-**Manual:** download `main.js`, `manifest.json` and `styles.css` from the latest release (see the “Releases” page of this repository) and copy them to
+**Manual:** download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/MarioLung/obsidian-recipe-manager/releases/latest) and copy them to
 `<your vault>/.obsidian/plugins/recipe-manager/`, then enable the plugin under *Community plugins*.
 
 **With BRAT** (beta testing, also works on iPhone/iPad): add this repository in the BRAT plugin.
@@ -93,4 +93,4 @@ The plugin makes **no network requests**, has **no telemetry** and only reads an
 Issues and pull requests are welcome.
 
 ## License
-[MIT](LICENSE)
+[MIT](https://github.com/MarioLung/obsidian-recipe-manager/blob/main/LICENSE)
