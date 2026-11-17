@@ -96,7 +96,7 @@ The plugin makes **no network requests**, has **no telemetry** and only reads an
 - No network requests, no external processes, no telemetry.
 
 ## Support & contributions
-Issues and pull requests are welcome.
+Issues and pull requests are welcome – see [CONTRIBUTING.md](https://github.com/MarioLung/obsidian-recipe-atelier/blob/main/CONTRIBUTING.md).
 
 ## License
 [MIT](https://github.com/MarioLung/obsidian-recipe-atelier/blob/main/LICENSE)
