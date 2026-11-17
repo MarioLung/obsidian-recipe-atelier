@@ -1,7 +1,7 @@
 "use strict";
 /* Recipe Atelier – recipe management for baking, cooking and pastry */
 const obsidian = require("obsidian");
-const { Plugin, ItemView, Modal, Notice, PluginSettingTab, Setting, TFile, normalizePath, setIcon, Platform, moment, arrayBufferToBase64, base64ToArrayBuffer } = obsidian;
+const { Plugin, ItemView, Modal, Notice, PluginSettingTab, Setting, TFile, normalizePath, setIcon, Platform, moment, TFolder, arrayBufferToBase64, base64ToArrayBuffer } = obsidian;
 
 const VIEW_DASH = "recipe-atelier-dashboard";
 const VIEW_EDIT = "recipe-atelier-editor";
@@ -739,7 +739,23 @@ class RecipeManagerPlugin extends Plugin {
   }
   isRecipeFile(f) { return f.extension === "md" && this.fm(f)["rm-type"] === "recipe"; }
   isIngredientFile(f) { return f.extension === "md" && this.fm(f)["rm-type"] === "ingredient"; }
-  recipeFiles() { return this.app.vault.getMarkdownFiles().filter((f) => this.isRecipeFile(f)); }
+  /** Notizen nur in den konfigurierten Ordnern (Rezepte + Rohstoffe) durchsuchen – nicht den ganzen Vault */
+  filesIn(folderPaths, ext) {
+    const out = [], seen = new Set();
+    const walk = (folder) => {
+      for (const ch of folder.children) {
+        if (ch instanceof TFolder) walk(ch);
+        else if (ch instanceof TFile && ch.extension === ext && !seen.has(ch.path)) { seen.add(ch.path); out.push(ch); }
+      }
+    };
+    for (const p of folderPaths) {
+      const folder = p ? this.app.vault.getFolderByPath(normalizePath(p)) : null;
+      if (folder) walk(folder);
+    }
+    return out;
+  }
+  noteFiles() { return this.filesIn([this.settings.recipeFolder, this.settings.ingredientFolder], "md"); }
+  recipeFiles() { return this.noteFiles().filter((f) => this.isRecipeFile(f)); }
 
   async loadRecipe(file) {
     const text = await this.app.vault.read(file);
@@ -882,7 +898,7 @@ class RecipeManagerPlugin extends Plugin {
   /* --- Rohstoffe --- */
   ingredients() {
     const list = [];
-    for (const f of this.app.vault.getMarkdownFiles()) {
+    for (const f of this.noteFiles()) {
       if (!this.isIngredientFile(f)) continue;
       const m = this.fm(f);
       const g = (...ks) => { for (const k of ks) if (m[k] !== undefined && m[k] !== null && m[k] !== "") return m[k]; return ""; };
@@ -1460,7 +1476,7 @@ class ImportModal extends Modal {
         if (!f) return;
         this.load(await f.text());
       };
-      const vaultFiles = this.app.vault.getFiles().filter((f) => f.name.endsWith(".rmbundle.json"));
+      const vaultFiles = this.plugin.filesIn([normalizePath(this.plugin.settings.recipeFolder + "/Export")], "json").filter((f) => f.name.endsWith(".rmbundle.json"));
       if (vaultFiles.length) {
         c.createEl("h4", { text: tx("Export-Dateien im Vault") });
         vaultFiles.forEach((f) => {

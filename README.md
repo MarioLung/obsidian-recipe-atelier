@@ -91,7 +91,7 @@ The plugin makes **no network requests**, has **no telemetry** and only reads an
 
 ## Permissions and behavior
 
-- **Reads the list of notes in your vault** (`vault.getMarkdownFiles`) and checks their properties in the metadata cache to find notes with `rm-type: recipe` or `rm-type: ingredient`. This is required to show the dashboard, match ingredient prices to recipes and build exports. Only those recipe and ingredient notes are opened; all other notes are neither read nor modified.
+- **Only looks into two folders:** the configured recipe folder (including its sub-folders) and the ingredient folder. The plugin never enumerates the rest of your vault. Recipes and ingredients must therefore live in these folders (change them in the settings if needed).
 - **Writes** only recipe and ingredient notes, images in the configured image folder, and (on request) an export file in `<recipe folder>/Export`.
 - No network requests, no external processes, no telemetry.
 
