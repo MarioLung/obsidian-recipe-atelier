@@ -1,10 +1,10 @@
 "use strict";
-/* Recipe Manager – Rezeptverwaltung für Backen, Kochen & Konditorei */
+/* Recipe Atelier – recipe management for baking, cooking and pastry */
 const obsidian = require("obsidian");
 const { Plugin, ItemView, Modal, Notice, PluginSettingTab, Setting, TFile, normalizePath, setIcon, Platform, moment, arrayBufferToBase64, base64ToArrayBuffer } = obsidian;
 
-const VIEW_DASH = "recipe-manager-dashboard";
-const VIEW_EDIT = "recipe-manager-editor";
+const VIEW_DASH = "recipe-atelier-dashboard";
+const VIEW_EDIT = "recipe-atelier-editor";
 const FENCE = "```";
 const BLOCK_LANG = "recipe-manager";
 
@@ -167,7 +167,7 @@ const EN = {
  " überschrieben, ": " overwritten, ",
  " übersprungen": " skipped",
  "Import fehlgeschlagen: ": "Import failed: ",
- "Keine Recipe-Manager-Exportdatei": "Not a Recipe Manager export file",
+ "Keine Recipe-Atelier-Exportdatei": "Not a Recipe Atelier export file",
  "Datei nicht lesbar: ": "File not readable: ",
  "Titel": "Title",
  "z. B. Roggenbrot": "e.g. rye bread",
@@ -653,7 +653,7 @@ class RecipeManagerPlugin extends Plugin {
     this.registerView(VIEW_DASH, (leaf) => new DashboardView(leaf, this));
     this.registerView(VIEW_EDIT, (leaf) => new RecipeEditorView(leaf, this));
 
-    this.addRibbonIcon("chef-hat", "Recipe Manager", () => this.openDashboard());
+    this.addRibbonIcon("chef-hat", "Recipe Atelier", () => this.openDashboard());
 
     this.addCommand({ id: "open-dashboard", name: tx("Dashboard öffnen"), callback: () => this.openDashboard() });
     this.addCommand({ id: "new-recipe", name: tx("Neues Rezept"), callback: () => new NewRecipeModal(this.app, this).open() });
@@ -1169,7 +1169,7 @@ class DashboardView extends ItemView {
     this.timer = null;
   }
   getViewType() { return VIEW_DASH; }
-  getDisplayText() { return "Recipe Manager"; }
+  getDisplayText() { return "Recipe Atelier"; }
   getIcon() { return "chef-hat"; }
   async onOpen() { this.contentEl.addClass("rm-dash"); await this.render(); }
   scheduleRefresh() {
@@ -1181,7 +1181,7 @@ class DashboardView extends ItemView {
     const el = this.contentEl;
     el.empty();
     const top = el.createDiv("rm-dash-top");
-    top.createEl("h1", { text: "Recipe Manager" });
+    top.createEl("h1", { text: "Recipe Atelier" });
     const tabs = top.createDiv("rm-tabs");
     [["recipes", tx("Rezepte"), "book-open"], ["ingredients", tx("Rohstoffe"), "package"]].forEach(([k, label, icon]) => {
       const b = tabs.createEl("button", { cls: "rm-tab" + (this.tab === k ? " is-active" : "") });
@@ -1509,7 +1509,7 @@ class ImportModal extends Modal {
   load(text) {
     try {
       const j = JSON.parse(text);
-      if (j.format !== "recipe-manager-bundle" || !Array.isArray(j.recipes)) throw new Error(tx("Keine Recipe-Manager-Exportdatei"));
+      if (j.format !== "recipe-manager-bundle" || !Array.isArray(j.recipes)) throw new Error(tx("Keine Recipe-Atelier-Exportdatei"));
       this.bundle = j;
       this.draw();
     } catch (e) { new Notice(tx("Datei nicht lesbar: ") + e.message); }

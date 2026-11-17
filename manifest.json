@@ -1,6 +1,6 @@
 {
-  "id": "recipe-manager",
-  "name": "Recipe Manager",
+  "id": "recipe-atelier",
+  "name": "Recipe Atelier",
   "version": "1.0.0",
   "minAppVersion": "1.6.6",
   "description": "Manage baking, cooking and pastry recipes: baker's percentages, multi-part recipes, piece and tray scaling, ingredient prices, photos, variants, export and import.",
