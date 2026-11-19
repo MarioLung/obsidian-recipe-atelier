@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0
+- Fixed ingredient numbers: every ingredient gets a permanent number (`ingredient-id`). Recipes are linked to it, so renaming an ingredient updates all recipes; export/import maps ingredients by number (collisions get a new number).
+- Costs update automatically in the recipe view, editor and dashboard when an ingredient changes (price, package, name …).
+- New ingredient field "weight per piece" to convert pieces to grams (e.g. eggs); a ⚠ marks prices that cannot be converted.
+- New package unit m³ (e.g. water), small prices are shown with more decimals.
+- Packaging unit is now a combobox with common values (sorted A–Z) and free input.
+- Cost column in the recipe view has the same width in all tables.
+- Settings: button to link recipes to ingredient numbers.
+
 ## 1.1.0
 - Ingredient → recipes: the ingredient list shows in how many recipes each ingredient is used (sortable column). Click the count to see the recipes with amounts and jump to the recipe or its editor.
 - The ingredient dialog lists the recipes that use the ingredient.

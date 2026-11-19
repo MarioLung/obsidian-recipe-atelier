@@ -313,7 +313,41 @@ const EN = {
  "Verwendung: ": "Usage: ",
  "Keine Rezepte verwenden diesen Rohstoff.": "No recipe uses this ingredient.",
  "Gesamt in allen Rezepten: ": "Total across all recipes: ",
- "Rezepte mit diesem Rohstoff": "Recipes using this ingredient"
+ "Rezepte mit diesem Rohstoff": "Recipes using this ingredient",
+ "Auswählen oder eigenen Text eingeben": "Choose or type your own",
+ "Sack": "Bag",
+ "Karton": "Box",
+ "Kiste": "Crate",
+ "Eimer": "Bucket",
+ "Kanister": "Canister",
+ "Fass": "Barrel",
+ "Flasche": "Bottle",
+ "Packung": "Pack",
+ "Beutel": "Pouch",
+ "Dose": "Can",
+ "Glas": "Jar",
+ "Tube": "Tube",
+ "Tray": "Tray",
+ "Palette": "Pallet",
+ "Block": "Block",
+ "Würfel": "Cube",
+ "Stange": "Stick",
+ "Tetra Pak": "Carton",
+ "Bag-in-Box": "Bag-in-box",
+ "Eigenschaften": "Properties",
+ "Rohstoff umbenannt – Rezepte angepasst: ": "Ingredient renamed – recipes updated: ",
+ "Nr.": "No.",
+ "Feste Rohstoffnummer – wird automatisch vergeben und kann nicht geändert werden": "Fixed ingredient number – assigned automatically and cannot be changed",
+ "wird beim Speichern vergeben": "assigned on save",
+ "Rohstoffnummern vergeben: ": "Ingredient numbers assigned: ",
+ " · Rezepte verknüpft: ": " · recipes linked: ",
+ "Rezepte mit Rohstoffnummern verknüpfen": "Link recipes to ingredient numbers",
+ "Vergibt fehlende Rohstoffnummern und verknüpft alle Zutaten der Rezepte mit der Nummer des gleichnamigen Rohstoffs.": "Assigns missing ingredient numbers and links all recipe ingredients to the number of the ingredient with the same name.",
+ "Jetzt verknüpfen": "Link now",
+ "Fertig": "Done",
+ "Gewicht pro Stück (g)": "Weight per piece (g)",
+ "Zum Umrechnen von Stück in Gramm, z. B. Ei ≈ 55 g. Nötig, wenn der Preis pro Stück gilt, das Rezept aber in kg/g rechnet.": "Used to convert pieces to grams, e.g. egg ≈ 55 g. Needed when the price is per piece but the recipe uses kg/g.",
+ "Preis vorhanden, aber nicht umrechenbar – beim Rohstoff „Gewicht pro Stück“ bzw. die passende Einheit eintragen": "Price available but cannot be converted – enter “Weight per piece” or a matching unit on the ingredient"
 };
 /** Schlüssel sind die deutschen Texte; bei Englisch wird übersetzt. */
 const tx = (k) => (LANG === "de" ? k : EN[k] !== undefined ? EN[k] : k);
@@ -337,8 +371,12 @@ function defaultSettings() {
     showCost: true,
   };
 }
-const unitChoices = () => ["g", "kg", "ml", "l", tx("Stk."), tx("EL"), tx("TL"), tx("Msp."), tx("Prise"), tx("Becher"), tx("Pkg."), tx("Bund"), tx("Zehe")];
-const packUnits = () => ["g", "kg", "ml", "l", tx("Stk.")];
+const packagingChoices = () => [
+  "Sack", "Karton", "Kiste", "Eimer", "Kanister", "Fass", "Flasche", "Packung", "Beutel", "Dose", "Glas", "Tube", "Becher",
+  "Tray", "Palette", "Block", "Würfel", "Stange", "Tetra Pak", "Bag-in-Box",
+].map((x) => tx(x));
+const unitChoices = () => ["g", "kg", "ml", "l", "m³", tx("Stk."), tx("EL"), tx("TL"), tx("Msp."), tx("Prise"), tx("Becher"), tx("Pkg."), tx("Bund"), tx("Zehe")];
+const packUnits = () => ["g", "kg", "ml", "l", "m³", tx("Stk.")];
 const paramSuggestions = () => [
   tx("Teigtemperatur"), tx("Teigruhe"), tx("Stockgare"), tx("Stückgare"), tx("Backtemperatur"), tx("Unterhitze"), tx("Oberhitze"),
   tx("Backzeit"), tx("Programm"), tx("Ausrollen"), tx("Knetzeit"), tx("Reifezeit"), tx("Kerntemperatur"), tx("Form / Blech"), tx("Haltbarkeit"),
@@ -402,6 +440,7 @@ function unitInfo(u) {
   if (k === "kg") return { f: 1000, kind: "mass" };
   if (k === "ml") return { f: 1, kind: "mass" };
   if (k === "l") return { f: 1000, kind: "mass" };
+  if (k === "m³" || k === "m3") return { f: 1000000, kind: "mass" };
   if (k === "stk" || k === "pcs" || k === "piece" || k === "pieces") return { f: null, kind: "count" };
   return { f: null, kind: "other" };
 }
@@ -604,12 +643,21 @@ function convertPartMode(r, p, mode, unit) {
 /* Kosten */
 function lineCost(row, idx) {
   const name = (row.ing.name || "").trim().toLowerCase();
-  const info = name && idx.get(name);
+  const info = (row.ing.ingId && idx.get("#" + row.ing.ingId)) || (name && idx.get(name));
   if (!info) return null;
   const k = unitInfo(row.unit).kind;
   if (info.kind === "mass" && row.grams != null) return row.grams * info.perUnit;
   if (info.kind === "count" && k === "count") return row.amount * info.perUnit;
+  /* Umrechnung Stück ↔ Gramm über das Gewicht pro Stück */
+  if (info.kind === "count" && info.pieceWeight > 0 && row.grams != null) return (row.grams / info.pieceWeight) * info.perUnit;
+  if (info.kind === "mass" && info.pieceWeight > 0 && k === "count") return row.amount * info.pieceWeight * info.perUnit;
   return null;
+}
+/** Es gibt einen Rohstoff mit Preis, aber die Einheit lässt sich nicht umrechnen */
+function costMissingConversion(row, idx) {
+  if (row.cost != null || row.ing.refPart) return false;
+  const name = (row.ing.name || "").trim().toLowerCase();
+  return !!((row.ing.ingId && idx.get("#" + row.ing.ingId)) || (name && idx.get(name)));
 }
 /** Bei Alternativen-Gruppen zählt nur die gewählte (sonst die erste) Alternative */
 function altSkipIds(r, sel) {
@@ -704,15 +752,82 @@ class RecipeManagerPlugin extends Plugin {
         menu.addItem((i) => i.setTitle(tx("Rezept exportieren …")).setIcon("upload").onClick(() => new ExportModal(this.app, this, [file]).open()));
       }
     }));
+    this.cards = new Set();
+    this.priceTimer = null;
     const refresh = () => this.app.workspace.getLeavesOfType(VIEW_DASH).forEach((l) => l.view.scheduleRefresh && l.view.scheduleRefresh());
-    this.registerEvent(this.app.metadataCache.on("changed", refresh));
-    this.registerEvent(this.app.vault.on("delete", refresh));
-    this.registerEvent(this.app.vault.on("rename", refresh));
+    /* Rohstoff geändert (Preis, Packung, Name …) → Kosten in Rezeptansicht, Editor und Dashboard neu rechnen */
+    const onIngredient = (file) => {
+      if (!(file instanceof TFile) || file.extension !== "md") return;
+      if (!this.isIngredientFile(file) && !String(file.path).startsWith(normalizePath(this.settings.ingredientFolder) + "/")) return;
+      clearTimeout(this.priceTimer);
+      this.priceTimer = setTimeout(() => this.refreshPrices(), 300);
+    };
+    this.registerEvent(this.app.metadataCache.on("changed", (f) => { refresh(); onIngredient(f); }));
+    this.registerEvent(this.app.vault.on("delete", (f) => { refresh(); onIngredient(f); }));
+    this.registerEvent(this.app.vault.on("rename", (f, oldPath) => {
+      refresh();
+      const dir = normalizePath(this.settings.ingredientFolder) + "/";
+      if (f instanceof TFile && f.extension === "md" && String(oldPath).startsWith(dir) && f.path.startsWith(dir)) {
+        const base = (p) => String(p).split("/").pop().replace(/\.md$/, "");
+        const o = base(oldPath), n = base(f.path);
+        const mid = parseInt(this.fm(f)["ingredient-id"], 10) || 0;
+        if (o !== n) this.renameIngredientInRecipes(o, n, mid);
+      }
+      onIngredient(f);
+    }));
 
+    this.app.workspace.onLayoutReady(() => setTimeout(() => this.migrateIds(), 1500));
     this.addSettingTab(new RMSettingTab(this.app, this));
   }
 
-  onunload() {}
+  onunload() { clearTimeout(this.priceTimer); }
+
+  /** Verwendung eines Rohstoffs (per Nummer und per Name, zusammengeführt) */
+  usageOf(idx, ing) {
+    const out = new Map();
+    [ing.id ? "#" + ing.id : null, String(ing.name || "").trim().toLowerCase()].forEach((k) => {
+      const e = k && idx.get(k);
+      if (!e) return;
+      e.forEach((u, path) => {
+        const x = out.get(path);
+        if (!x) out.set(path, Object.assign({}, u, { parts: u.parts.slice(), amounts: u.amounts.slice() }));
+        else { x.grams += u.grams; x.parts.push(...u.parts); x.amounts.push(...u.amounts); }
+      });
+    });
+    return Array.from(out.values());
+  }
+
+  /** Rohstoff wurde umbenannt → Zutatennamen in allen Rezepten anpassen */
+  async renameIngredientInRecipes(oldName, newName, ingId) {
+    const key = String(oldName).trim().toLowerCase();
+    const open = new Map();
+    this.app.workspace.getLeavesOfType(VIEW_EDIT).forEach((l) => { if (l.view && l.view.file) open.set(l.view.file.path, l.view); });
+    let n = 0;
+    for (const f of this.recipeFiles()) {
+      const view = open.get(f.path);
+      if (view && view.data) {
+        if (view.applyIngredientRename(key, newName, ingId)) n++;
+        continue;
+      }
+      let data = null;
+      try { data = extractData(await this.app.vault.read(f)); } catch (e) { data = null; }
+      if (!data) continue;
+      let changed = false;
+      data.parts.forEach((p) => p.ingredients.forEach((i) => {
+        if (!i.refPart && ((ingId && i.ingId === ingId) || String(i.name || "").trim().toLowerCase() === key)) { i.name = newName; if (ingId) i.ingId = ingId; changed = true; }
+      }));
+      if (changed) { await this.saveRecipe(f, data); n++; }
+    }
+    if (n) new Notice(tx("Rohstoff umbenannt – Rezepte angepasst: ") + n);
+    this.refreshPrices();
+  }
+
+  /** Kosten überall neu berechnen, wo Rezepte geöffnet sind */
+  refreshPrices() {
+    this.cards.forEach((c) => { if (c.root.isConnected) { try { c.draw(); } catch (e) { /* ignorieren */ } } else this.cards.delete(c); });
+    this.app.workspace.getLeavesOfType(VIEW_EDIT).forEach((l) => l.view.refreshPrices && l.view.refreshPrices());
+    this.app.workspace.getLeavesOfType(VIEW_DASH).forEach((l) => l.view.scheduleRefresh && l.view.scheduleRefresh());
+  }
   async saveSettings() { await this.saveData(this.settings); }
 
   /* --- Navigation --- */
@@ -875,15 +990,32 @@ class RecipeManagerPlugin extends Plugin {
         res.images++;
       }
     }
+    /* Rohstoffe: Zuordnung über die feste Nummer (alte Nummer → lokale Nummer) */
+    const idMap = {};
+    const idOf = (content) => { const m = /^ingredient-id:\s*(\d+)/m.exec(content || ""); return m ? parseInt(m[1], 10) : 0; };
+    const setId = (content, id) => (/^ingredient-id:/m.test(content) ? content.replace(/^ingredient-id:.*$/m, "ingredient-id: " + id) : content.replace(/^---\n/, "---\ningredient-id: " + id + "\n"));
     if (opts.ingredients) {
+      const local = this.ingredients();
+      let next = local.reduce((m, l) => Math.max(m, l.id || 0), 0) + 1;
       for (const ing of bundle.ingredients || []) {
         const dir = this.settings.ingredientFolder;
         await this.ensureFolder(dir);
-        const p = normalizePath(dir + "/" + safeName(ing.name) + ".md");
-        const ex = exists(p);
-        if (ex instanceof TFile) {
-          if (opts.mode === "overwrite") { await this.app.vault.modify(ex, ing.content); res.overwritten++; } else res.skipped++;
-        } else { await this.app.vault.create(p, ing.content); res.ingredients++; }
+        const oldId = idOf(ing.content);
+        const nm = String(ing.name).trim().toLowerCase();
+        const byId = oldId ? local.find((l) => l.id === oldId) : null;
+        const target = byId && byId.name.trim().toLowerCase() === nm ? byId : local.find((l) => l.name.trim().toLowerCase() === nm);
+        if (target) {
+          if (oldId) idMap[oldId] = target.id;
+          if (opts.mode === "overwrite") { await this.app.vault.modify(target.file, setId(ing.content, target.id || next)); res.overwritten++; } else res.skipped++;
+        } else {
+          const nid = oldId && !local.some((l) => l.id === oldId) ? oldId : next;
+          next = Math.max(next, nid + 1);
+          const p = normalizePath(dir + "/" + safeName(ing.name) + ".md");
+          const file = await this.app.vault.create(p, setId(ing.content, nid));
+          if (oldId) idMap[oldId] = nid;
+          local.push({ id: nid, name: ing.name, file });
+          res.ingredients++;
+        }
       }
     }
     for (const i of opts.recipes) {
@@ -893,6 +1025,17 @@ class RecipeManagerPlugin extends Plugin {
       await this.ensureFolder(dir);
       let p = normalizePath(dir + "/" + safeName(r.name) + ".md");
       let content = r.content;
+      /* Rohstoffnummern der Rezepte auf die lokalen Nummern umstellen (ohne importierte Rohstoffe: Nummer entfernen, Zuordnung per Name) */
+      {
+        const rd = extractData(content);
+        if (rd) {
+          rd.parts.forEach((pt) => pt.ingredients.forEach((ig) => {
+            if (!ig.ingId) return;
+            if (opts.ingredients && idMap[ig.ingId] !== undefined) ig.ingId = idMap[ig.ingId]; else delete ig.ingId;
+          }));
+          content = injectBlock(content, rd);
+        }
+      }
       const ex = exists(p);
       if (ex instanceof TFile) {
         if (opts.mode === "overwrite") { await this.app.vault.modify(ex, content); res.overwritten++; continue; }
@@ -904,6 +1047,8 @@ class RecipeManagerPlugin extends Plugin {
       await this.app.vault.create(p, content);
       res.recipes++;
     }
+    await new Promise((r) => setTimeout(r, 300));
+    await this.linkAllRecipes();
     return res;
   }
 
@@ -915,9 +1060,9 @@ class RecipeManagerPlugin extends Plugin {
       const m = this.fm(f);
       const g = (...ks) => { for (const k of ks) if (m[k] !== undefined && m[k] !== null && m[k] !== "") return m[k]; return ""; };
       list.push({
-        file: f, name: f.basename, kategorie: g("category", "kategorie"), lieferant: g("supplier", "lieferant"),
+        file: f, id: parseInt(m["ingredient-id"], 10) || 0, name: f.basename, kategorie: g("category", "kategorie"), lieferant: g("supplier", "lieferant"),
         url: g("supplier-url", "lieferant-url"), verpackung: g("packaging", "verpackung"),
-        gewicht: parseNum(g("package-size", "packungsgewicht")), einheit: g("package-unit", "packungseinheit") || "kg",
+        stueck: parseNum(g("piece-weight")), gewicht: parseNum(g("package-size", "packungsgewicht")), einheit: g("package-unit", "packungseinheit") || "kg",
         preis: parseNum(g("price", "preis")), artikel: g("article-number", "artikelnr"), allergene: g("allergens", "allergene"), notiz: g("notes", "notiz"),
       });
     }
@@ -933,7 +1078,13 @@ class RecipeManagerPlugin extends Plugin {
   }
   costIndex() {
     const m = new Map();
-    this.ingredients().forEach((i) => { const p = this.pricePerBase(i); if (p) m.set(i.name.trim().toLowerCase(), p); });
+    this.ingredients().forEach((i) => {
+      const p = this.pricePerBase(i);
+      if (!p) return;
+      const info = Object.assign({}, p, { pieceWeight: i.stueck || 0 });
+      m.set(i.name.trim().toLowerCase(), info);
+      if (i.id) m.set("#" + i.id, info);
+    });
     return m;
   }
   /** Rohstoff-Verwendung: Name (klein) → Map(Rezeptpfad → {file, title, category, parts, grams, amounts}) */
@@ -948,7 +1099,7 @@ class RecipeManagerPlugin extends Plugin {
         const pc = calc.parts[p.id];
         if (!pc) return;
         pc.rows.forEach((row) => {
-          const n = String(row.ing.name || "").trim().toLowerCase();
+          const n = row.ing.ingId ? "#" + row.ing.ingId : String(row.ing.name || "").trim().toLowerCase();
           if (!n || row.ing.refPart) return;
           let e = idx.get(n);
           if (!e) { e = new Map(); idx.set(n, e); }
@@ -961,6 +1112,54 @@ class RecipeManagerPlugin extends Plugin {
       });
     }
     return idx;
+  }
+
+  /** Nächste freie Rohstoffnummer */
+  nextIngredientId() {
+    return this.ingredients().reduce((m, i) => Math.max(m, i.id || 0), 0) + 1;
+  }
+  /** Rohstoffen ohne Nummer eine feste Nummer geben (einmalig, nie ändern) */
+  async assignMissingIds() {
+    const missing = this.ingredients().filter((i) => !i.id);
+    if (!missing.length) return 0;
+    let next = this.nextIngredientId();
+    for (const i of missing) {
+      const id = next++;
+      await this.app.fileManager.processFrontMatter(i.file, (fm) => { if (!fm["ingredient-id"]) fm["ingredient-id"] = id; });
+    }
+    return missing.length;
+  }
+  /** Zutaten in Rezepten mit der Rohstoffnummer verknüpfen (über den Namen) */
+  async linkAllRecipes() {
+    const byName = new Map();
+    this.ingredients().forEach((i) => { if (i.id) byName.set(i.name.trim().toLowerCase(), i.id); });
+    let n = 0;
+    for (const f of this.recipeFiles()) {
+      let data = null;
+      try { data = extractData(await this.app.vault.read(f)); } catch (e) { data = null; }
+      if (!data) continue;
+      let changed = false;
+      data.parts.forEach((p) => p.ingredients.forEach((i) => {
+        if (i.refPart) return;
+        const id = byName.get(String(i.name || "").trim().toLowerCase());
+        if (id && i.ingId !== id) { i.ingId = id; changed = true; }
+      }));
+      if (changed) { await this.app.vault.process(f, (t) => injectBlock(t, data)); n++; }
+    }
+    return n;
+  }
+  async migrateIds() {
+    try {
+      const a = await this.assignMissingIds();
+      if (a || !this.settings.idsLinked) {
+        await new Promise((r) => setTimeout(r, 400));
+        const l = await this.linkAllRecipes();
+        this.settings.idsLinked = true;
+        await this.saveSettings();
+        if (a || l) new Notice(tx("Rohstoffnummern vergeben: ") + a + tx(" · Rezepte verknüpft: ") + l);
+        this.refreshPrices();
+      }
+    } catch (e) { /* ignorieren */ }
   }
 
   async saveIngredient(existing, v) {
@@ -979,12 +1178,14 @@ class RecipeManagerPlugin extends Plugin {
       if (this.app.vault.getAbstractFileByPath(path)) throw new Error(tx("Rohstoff existiert bereits"));
       file = await this.app.vault.create(path, "---\nrm-type: ingredient\n---\n");
     }
+    const newId = this.nextIngredientId();
     await this.app.fileManager.processFrontMatter(file, (fm) => {
       fm["rm-type"] = "ingredient";
+      if (!fm["ingredient-id"]) fm["ingredient-id"] = newId; /* feste Nummer: wird nie geändert */
       const set = (k, val) => { if (val === "" || val == null || val === 0) delete fm[k]; else fm[k] = val; };
       ["kategorie", "lieferant", "lieferant-url", "verpackung", "packungsgewicht", "packungseinheit", "preis", "artikelnr", "allergene", "notiz"].forEach((k) => delete fm[k]);
       set("category", v.kategorie); set("supplier", v.lieferant); set("supplier-url", v.url);
-      set("packaging", v.verpackung); set("package-size", v.gewicht); set("package-unit", v.einheit);
+      set("packaging", v.verpackung); set("piece-weight", v.stueck); set("package-size", v.gewicht); set("package-unit", v.einheit);
       set("price", v.preis); set("article-number", v.artikel); set("allergens", v.allergene); set("notes", v.notiz);
     });
     return file;
@@ -1029,7 +1230,12 @@ class RecipeManagerPlugin extends Plugin {
     return this.settings.weightUnit === "g" ? fmt(g, 1) : fmtFix(g / 1000, 3);
   }
   weightFactor() { return this.settings.weightUnit === "g" ? 1 : 1000; }
-  money(v) { return v == null ? "" : fmtFix(v, 2) + " " + this.settings.currency; }
+  money(v) {
+    if (v == null) return "";
+    const av = Math.abs(v);
+    const d = av > 0 && av < 0.01 ? 5 : av > 0 && av < 0.1 ? 4 : 2;
+    return fmtFix(v, d) + " " + this.settings.currency;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1140,7 +1346,10 @@ function renderRecipeCard(container, data, plugin, sourcePath) {
           tr.createEl("td", { text: row.ing.name + (row.ing.note ? " – " + row.ing.note : "") });
         }
         if (showPct) tr.createEl("td", { cls: "rm-num rm-muted", text: row.percent != null ? fmt(row.percent, 1) + " %" : "" });
-        if (showCostCol) tr.createEl("td", { cls: "rm-num rm-muted", text: row.cost != null ? plugin.money(row.cost) : "" });
+        if (showCostCol) {
+          const miss = costMissingConversion(row, idx);
+          tr.createEl("td", { cls: "rm-num rm-muted rm-cost", text: row.cost != null ? plugin.money(row.cost) : miss ? "⚠" : "", attr: miss ? { title: tx("Preis vorhanden, aber nicht umrechenbar – beim Rohstoff „Gewicht pro Stück“ bzw. die passende Einheit eintragen") } : {} });
+        }
       });
       if (pc.total > 0 && (p.mode === "percent" || p.totalLabel)) {
         const tr = tb.createEl("tr", { cls: "rm-total" });
@@ -1153,7 +1362,7 @@ function renderRecipeCard(container, data, plugin, sourcePath) {
           tr.createEl("td", { text: p.totalLabel });
         }
         if (showPct) tr.createEl("td");
-        if (showCostCol) tr.createEl("td");
+        if (showCostCol) tr.createEl("td", { cls: "rm-cost" });
       }
     };
     const doneGroups = {};
@@ -1209,6 +1418,7 @@ function renderRecipeCard(container, data, plugin, sourcePath) {
     }
   };
   draw();
+  plugin.cards.add({ root, draw });
 }
 
 /* ------------------------------------------------------------------ */
@@ -1351,9 +1561,8 @@ class DashboardView extends ItemView {
     });
   }
 
-  usageFor(name) {
-    const e = this.usage && this.usage.get(String(name).trim().toLowerCase());
-    return e ? Array.from(e.values()) : [];
+  usageFor(ing) {
+    return this.usage ? this.plugin.usageOf(this.usage, ing) : [];
   }
 
   renderIngredientRows() {
@@ -1361,7 +1570,7 @@ class DashboardView extends ItemView {
     const q = this.search.toLowerCase();
     const list = this.plugin.ingredients().filter((i) => !q || (i.name + " " + i.kategorie + " " + i.lieferant).toLowerCase().includes(q));
     if (this.usage && this.ingSort !== "name") {
-      const cnt = (i) => this.usageFor(i.name).length;
+      const cnt = (i) => this.usageFor(i).length;
       list.sort((a, b) => (this.ingSort === "usage-desc" ? cnt(b) - cnt(a) : cnt(a) - cnt(b)) || a.name.localeCompare(b.name, LANG));
     }
     if (!list.length) {
@@ -1370,7 +1579,7 @@ class DashboardView extends ItemView {
     }
     const t = this.body.createEl("table", { cls: "rm-table rm-table-wide" });
     const hr = t.createEl("thead").createEl("tr");
-    [tx("Rohstoff"), tx("Kategorie"), tx("Lieferant"), tx("Verpackung"), tx("Packungsgewicht"), tx("Preis"), tx("Preis / kg · Stk."), "usage", ""].forEach((h) => {
+    [tx("Nr."), tx("Rohstoff"), tx("Kategorie"), tx("Lieferant"), tx("Verpackung"), tx("Packungsgewicht"), tx("Preis"), tx("Preis / kg · Stk."), "usage", ""].forEach((h) => {
       if (h !== "usage") { hr.createEl("th", { text: h }); return; }
       const arrow = this.ingSort === "usage-desc" ? " ↓" : this.ingSort === "usage-asc" ? " ↑" : "";
       const th = hr.createEl("th", { cls: "rm-num rm-sortable", text: tx("Verwendet") + arrow, attr: { title: tx("Nach Verwendung sortieren") } });
@@ -1382,6 +1591,7 @@ class DashboardView extends ItemView {
     const tb = t.createEl("tbody");
     list.forEach((i) => {
       const tr = tb.createEl("tr");
+      tr.createEl("td", { cls: "rm-muted rm-num", text: i.id ? String(i.id).padStart(4, "0") : "" });
       tr.createEl("td", { cls: "rm-strong", text: i.name });
       tr.createEl("td", { text: i.kategorie });
       const lt = tr.createEl("td");
@@ -1399,7 +1609,7 @@ class DashboardView extends ItemView {
       const ut = tr.createEl("td", { cls: "rm-num" });
       if (!this.usage) ut.setText("…");
       else {
-        const uses = this.usageFor(i.name);
+        const uses = this.usageFor(i);
         if (!uses.length) { ut.createSpan({ cls: "rm-muted", text: "–", attr: { title: tx("Nicht verwendet") } }); tr.addClass("rm-unused"); }
         else {
           const ub = ut.createEl("button", { cls: "rm-chip rm-chip-btn", text: recipeCount(uses.length) });
@@ -1667,18 +1877,32 @@ class IngredientModal extends Modal {
     const v = {
       name: e ? e.name : "", kategorie: e ? e.kategorie : "", lieferant: e ? e.lieferant : "", url: e ? e.url : "",
       verpackung: e ? e.verpackung : "", gewicht: e ? e.gewicht : 0, einheit: e ? e.einheit : "kg",
-      preis: e ? e.preis : 0, artikel: e ? e.artikel : "", allergene: e ? e.allergene : "", notiz: e ? e.notiz : "",
+      stueck: e ? e.stueck : 0, preis: e ? e.preis : 0, artikel: e ? e.artikel : "", allergene: e ? e.allergene : "", notiz: e ? e.notiz : "",
     };
     const c = this.contentEl;
     const txt = (name, key, ph, desc) => new Setting(c).setName(name).setDesc(desc || "").addText((t) => { t.setPlaceholder(ph || "").setValue(String(v[key] || "")); t.onChange((x) => (v[key] = x)); });
+    new Setting(c).setName(tx("Nr.")).setDesc(tx("Feste Rohstoffnummer – wird automatisch vergeben und kann nicht geändert werden"))
+      .addText((t) => { t.setValue(e && e.id ? String(e.id).padStart(4, "0") : tx("wird beim Speichern vergeben")); t.inputEl.disabled = true; t.inputEl.addClass("rm-w140"); });
     txt("Name", "name", tx("z. B. Weizenmehl W700"));
     txt(tx("Kategorie"), "kategorie", tx("Mehl, Milchprodukte, Gewürze …"));
     txt(tx("Lieferant"), "lieferant", tx("Name des Lieferanten"));
     txt(tx("Lieferanten-Homepage"), "url", "https://…");
-    txt(tx("Verpackungseinheit"), "verpackung", tx("Sack, Karton, Eimer, Packung …"));
+    const dlId = "rm-pack-" + uid();
+    const packDl = c.createEl("datalist", { attr: { id: dlId } });
+    const packOpts = packagingChoices();
+    this.plugin.ingredients().forEach((i) => { if (i.verpackung && !packOpts.includes(i.verpackung)) packOpts.push(i.verpackung); });
+    packOpts.sort((x, y) => x.localeCompare(y, LANG, { sensitivity: "base" }));
+    packOpts.forEach((o) => packDl.createEl("option", { value: o }));
+    new Setting(c).setName(tx("Verpackungseinheit")).setDesc(tx("Auswählen oder eigenen Text eingeben")).addText((t) => {
+      t.setPlaceholder(tx("Sack, Karton, Eimer, Packung …")).setValue(String(v.verpackung || ""));
+      t.inputEl.setAttribute("list", dlId);
+      t.onChange((x) => (v.verpackung = x));
+    });
     new Setting(c).setName(tx("Verpackungsgewicht / -inhalt")).addText((t) => { t.setPlaceholder("25").setValue(v.gewicht ? String(v.gewicht).replace(".", ",") : ""); t.inputEl.addClass("rm-w90"); t.onChange((x) => (v.gewicht = parseNum(x))); })
       .addDropdown((d) => { packUnits().forEach((u) => d.addOption(u, u)); d.setValue(v.einheit); d.onChange((x) => (v.einheit = x)); });
     new Setting(c).setName(tx("Preis pro Verpackung")).setDesc(tx("in ") + this.plugin.settings.currency).addText((t) => { t.setPlaceholder("0,00").setValue(v.preis ? String(v.preis).replace(".", ",") : ""); t.inputEl.addClass("rm-w90"); t.onChange((x) => (v.preis = parseNum(x))); });
+    new Setting(c).setName(tx("Gewicht pro Stück (g)")).setDesc(tx("Zum Umrechnen von Stück in Gramm, z. B. Ei ≈ 55 g. Nötig, wenn der Preis pro Stück gilt, das Rezept aber in kg/g rechnet."))
+      .addText((t) => { t.setPlaceholder("55").setValue(v.stueck ? String(v.stueck).replace(".", ",") : ""); t.inputEl.addClass("rm-w90"); t.onChange((x) => (v.stueck = parseNum(x))); });
     txt(tx("Artikelnummer"), "artikel");
     txt(tx("Allergene"), "allergene", tx("z. B. Gluten, Milch, Ei"));
     txt(tx("Notiz"), "notiz");
@@ -1687,8 +1911,7 @@ class IngredientModal extends Modal {
       box.createDiv({ cls: "rm-label", text: tx("Rezepte mit diesem Rohstoff") });
       const holder = box.createDiv({ cls: "rm-muted", text: "…" });
       this.plugin.usageIndex().then((idx) => {
-        const entry = idx.get(String(e.name).trim().toLowerCase());
-        const uses = entry ? Array.from(entry.values()) : [];
+        const uses = this.plugin.usageOf(idx, e);
         holder.empty();
         if (!uses.length) { holder.setText(tx("Nicht verwendet")); return; }
         holder.removeClass("rm-muted");
@@ -1753,6 +1976,22 @@ class RecipeEditorView extends ItemView {
     } catch (e) { new Notice(tx("Speichern fehlgeschlagen: ") + e.message); }
   }
 
+  /** Zutatenname im geöffneten Rezept ersetzen (Rohstoff wurde umbenannt) */
+  applyIngredientRename(key, newName, ingId) {
+    if (!this.data) return false;
+    let changed = false;
+    this.data.parts.forEach((p) => p.ingredients.forEach((i) => {
+      if (!i.refPart && ((ingId && i.ingId === ingId) || String(i.name || "").trim().toLowerCase() === key)) { i.name = newName; if (ingId) i.ingId = ingId; changed = true; }
+    }));
+    if (changed) { this.render(); this.scheduleSave(); }
+    return changed;
+  }
+  refreshPrices() {
+    if (!this.data) return;
+    this.costIdx = this.plugin.settings.showCost ? this.plugin.costIndex() : new Map();
+    this.ingList = this.plugin.ingredients();
+    this.refresh();
+  }
   refresh() {
     this.calc = calcRecipe(this.data);
     this.cost = recipeCost(this.data, this.calc, this.costIdx);
@@ -2048,7 +2287,12 @@ class RecipeEditorView extends ItemView {
       } else {
         const nameIn = nameTd.createEl("input", { cls: "rm-input", type: "text", placeholder: tx("Zutat"), attr: { list: this.listId } });
         nameIn.value = ing.name;
-        nameIn.oninput = () => { ing.name = nameIn.value; this.changed(); };
+        nameIn.oninput = () => {
+          ing.name = nameIn.value;
+          const hit = this.ingList.find((x) => x.name.trim().toLowerCase() === ing.name.trim().toLowerCase());
+          ing.ingId = hit && hit.id ? hit.id : 0;
+          this.changed();
+        };
       }
       const locked = !!ing.refPart || (p.perPiece > 0 && !p.inTotal && d.yield.mode === "pieces" && d.yield.pieceWeight > 0);
       const noteIn = tr.createEl("td").createEl("input", { cls: "rm-input", type: "text", placeholder: tx("z. B. 5 Stück") });
@@ -2104,7 +2348,12 @@ class RecipeEditorView extends ItemView {
         if (!row) return;
         this.setVal(amtIn, pct ? this.plugin.weightInput(row.grams) : fmt(row.amount, 3));
         this.setVal(pctIn, row.percent == null ? "" : fmt(row.percent, 2));
-        if (costTd) costTd.setText(row.cost != null ? this.plugin.money(row.cost) : "");
+        if (costTd) {
+          const miss = costMissingConversion(row, this.costIdx);
+          costTd.setText(row.cost != null ? this.plugin.money(row.cost) : miss ? "⚠" : "");
+          if (miss) costTd.setAttr("title", tx("Preis vorhanden, aber nicht umrechenbar – beim Rohstoff „Gewicht pro Stück“ bzw. die passende Einheit eintragen"));
+          else costTd.removeAttribute("title");
+        }
       });
     });
 
@@ -2291,6 +2540,8 @@ class RMSettingTab extends PluginSettingTab {
       .addToggle((t) => t.setValue(s.showCost).onChange(async (v) => { s.showCost = v; await this.plugin.saveSettings(); }));
     new Setting(c).setName(tx("Rezepte nach Kategorie sortieren")).setDesc(tx("Verschiebt alle vorhandenen Rezepte in Unterordner ihrer Kategorie."))
       .addButton((b) => b.setButtonText(tx("Jetzt sortieren")).onClick(async () => { const n = await this.plugin.moveAllToCategoryFolders(); new Notice(n + tx(" Rezept(e) verschoben")); }));
+    new Setting(c).setName(tx("Rezepte mit Rohstoffnummern verknüpfen")).setDesc(tx("Vergibt fehlende Rohstoffnummern und verknüpft alle Zutaten der Rezepte mit der Nummer des gleichnamigen Rohstoffs."))
+      .addButton((b) => b.setButtonText(tx("Jetzt verknüpfen")).onClick(async () => { this.plugin.settings.idsLinked = false; await this.plugin.migrateIds(); new Notice(tx("Fertig")); }));
     new Setting(c).setName(tx("Kategorien")).setDesc(tx("Komma getrennt. Jede Kategorie bekommt einen Unterordner im Rezeptordner."))
       .addText((t) => t.setValue(s.categories.join(", ")).onChange(async (v) => {
         const l = v.split(",").map((x) => x.trim()).filter(Boolean);

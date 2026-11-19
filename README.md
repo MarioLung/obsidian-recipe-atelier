@@ -33,6 +33,8 @@ Recipes are normal notes in your vault, ingredients are normal notes with proper
 
 ### Ingredients and costs
 - Ingredient database: category, supplier **with website link**, packaging unit, package weight, price per package, article number, allergens.
+- **Fixed ingredient numbers:** renaming an ingredient updates all recipes; export/import keeps the links.
+- **Piece weight** for converting pieces to grams (e.g. eggs), package units incl. m³.
 - **Where used:** see in how many recipes an ingredient is used, sort by usage, and jump from an ingredient to its recipes.
 - Price per kg / piece is calculated; recipes show **material cost** per recipe, per piece, per portion and per tray.
 
