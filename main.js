@@ -301,7 +301,19 @@ const EN = {
  "Komma getrennt. Jede Kategorie bekommt einen Unterordner im Rezeptordner.": "Comma separated. Each category gets a sub-folder in the recipe folder.",
  "Sprache": "Language",
  "Sprache der Oberfläche. „Automatisch“ folgt der Sprache von Obsidian.": "Language of the interface. “Automatic” follows the language of Obsidian.",
- "Automatisch (wie Obsidian)": "Automatic (same as Obsidian)"
+ "Automatisch (wie Obsidian)": "Automatic (same as Obsidian)",
+ "1 Rezept": "1 recipe",
+ " Rezepte": " recipes",
+ "Verwendet in 1 Rezept": "Used in 1 recipe",
+ "Verwendet in ": "Used in ",
+ " Rezepten": " recipes",
+ "Verwendet": "Used",
+ "Nach Verwendung sortieren": "Sort by usage",
+ "Nicht verwendet": "Not used",
+ "Verwendung: ": "Usage: ",
+ "Keine Rezepte verwenden diesen Rohstoff.": "No recipe uses this ingredient.",
+ "Gesamt in allen Rezepten: ": "Total across all recipes: ",
+ "Rezepte mit diesem Rohstoff": "Recipes using this ingredient"
 };
 /** Schlüssel sind die deutschen Texte; bei Englisch wird übersetzt. */
 const tx = (k) => (LANG === "de" ? k : EN[k] !== undefined ? EN[k] : k);
@@ -419,7 +431,7 @@ function newRecipe(title, category) {
     totalLabel: "", parts: [], params: [], steps: [], photo: "", notes: "",
   };
   if (catKind(category) === "bake") {
-    const p = newPart("Teig", "percent");
+    const p = newPart(tx("Teig"), "percent");
     p.baseRef = "ingredient";
     p.ingredients.push(newIng({ name: tx("Mehl"), percent: 100, base: true }));
     p.ingredients.push(newIng({ name: tx("Wasser"), percent: 60 }));
@@ -924,6 +936,33 @@ class RecipeManagerPlugin extends Plugin {
     this.ingredients().forEach((i) => { const p = this.pricePerBase(i); if (p) m.set(i.name.trim().toLowerCase(), p); });
     return m;
   }
+  /** Rohstoff-Verwendung: Name (klein) → Map(Rezeptpfad → {file, title, category, parts, grams, amounts}) */
+  async usageIndex() {
+    const idx = new Map();
+    for (const f of this.recipeFiles()) {
+      let data = null;
+      try { data = extractData(await this.app.vault.cachedRead(f)); } catch (e) { data = null; }
+      if (!data) continue;
+      const calc = calcRecipe(data);
+      data.parts.forEach((p) => {
+        const pc = calc.parts[p.id];
+        if (!pc) return;
+        pc.rows.forEach((row) => {
+          const n = String(row.ing.name || "").trim().toLowerCase();
+          if (!n || row.ing.refPart) return;
+          let e = idx.get(n);
+          if (!e) { e = new Map(); idx.set(n, e); }
+          let u = e.get(f.path);
+          if (!u) { u = { file: f, title: data.title || f.basename, category: data.category, parts: [], grams: 0, amounts: [] }; e.set(f.path, u); }
+          u.parts.push(p.name);
+          if (row.grams != null) u.grams += row.grams;
+          else if (row.amount) u.amounts.push(fmt(row.amount, 3) + " " + row.unit);
+        });
+      });
+    }
+    return idx;
+  }
+
   async saveIngredient(existing, v) {
     const name = safeName(v.name);
     if (!name) throw new Error(tx("Name fehlt"));
@@ -1047,16 +1086,16 @@ function renderRecipeCard(container, data, plugin, sourcePath) {
     };
     if (calc.total > 0) stat(r.totalLabel || tx("Gesamtgewicht"), plugin.weightText(calc.total));
     if (r.yield.mode === "pieces" && calc.pieces != null) {
-      stat("Stück à " + fmt(r.yield.pieceWeight, 1) + " g", tx("ca. ") + fmt(calc.pieces, 1));
-      if (calc.bakedPiece) stat("Gebäckgewicht (−" + fmt(r.yield.bakeLoss, 1) + " %)", fmt(calc.bakedPiece, 1) + " g");
+      stat(tx("Stück à ") + fmt(r.yield.pieceWeight, 1) + " g", tx("ca. ") + fmt(calc.pieces, 1));
+      if (calc.bakedPiece) stat(tx("Gebäckgewicht (−") + fmt(r.yield.bakeLoss, 1) + " %)", fmt(calc.bakedPiece, 1) + " g");
     }
-    if (r.yield.mode === "portions" && r.yield.portions) stat("Portionen", fmt(r.yield.portions, 1));
-    if (r.yield.mode === "trays" && r.yield.portions) stat("Blech" + (r.yield.traySize ? " " + r.yield.traySize : ""), fmt(r.yield.portions, 2));
+    if (r.yield.mode === "portions" && r.yield.portions) stat(tx("Portionen"), fmt(r.yield.portions, 1));
+    if (r.yield.mode === "trays" && r.yield.portions) stat(tx("Blech") + (r.yield.traySize ? " " + r.yield.traySize : ""), fmt(r.yield.portions, 2));
     if (hasCost) {
-      stat("Materialkosten", plugin.money(cost));
-      if (r.yield.mode === "pieces" && calc.pieces) stat("pro Stück", plugin.money(cost / calc.pieces));
-      if (r.yield.mode === "portions" && r.yield.portions) stat("pro Portion", plugin.money(cost / r.yield.portions));
-      if (r.yield.mode === "trays" && r.yield.portions) stat("pro Blech", plugin.money(cost / r.yield.portions));
+      stat(tx("Materialkosten"), plugin.money(cost));
+      if (r.yield.mode === "pieces" && calc.pieces) stat(tx("pro Stück"), plugin.money(cost / calc.pieces));
+      if (r.yield.mode === "portions" && r.yield.portions) stat(tx("pro Portion"), plugin.money(cost / r.yield.portions));
+      if (r.yield.mode === "trays" && r.yield.portions) stat(tx("pro Blech"), plugin.money(cost / r.yield.portions));
     }
 
     const scaler = root.createDiv("rm-scaler");
@@ -1303,20 +1342,43 @@ class DashboardView extends ItemView {
   renderIngredients(el) {
     this.toolbar(el, tx("Rohstoffe suchen …"), tx("Neuer Rohstoff"), () => new IngredientModal(this.app, this.plugin, null).open());
     this.body = el.createDiv();
+    this.usage = null;
+    this.ingSort = this.ingSort || "name";
     this.renderIngredientRows();
+    this.plugin.usageIndex().then((idx) => {
+      this.usage = idx;
+      if (this.tab === "ingredients" && this.body && this.body.isConnected) this.renderIngredientRows();
+    });
+  }
+
+  usageFor(name) {
+    const e = this.usage && this.usage.get(String(name).trim().toLowerCase());
+    return e ? Array.from(e.values()) : [];
   }
 
   renderIngredientRows() {
     this.body.empty();
     const q = this.search.toLowerCase();
     const list = this.plugin.ingredients().filter((i) => !q || (i.name + " " + i.kategorie + " " + i.lieferant).toLowerCase().includes(q));
+    if (this.usage && this.ingSort !== "name") {
+      const cnt = (i) => this.usageFor(i.name).length;
+      list.sort((a, b) => (this.ingSort === "usage-desc" ? cnt(b) - cnt(a) : cnt(a) - cnt(b)) || a.name.localeCompare(b.name, LANG));
+    }
     if (!list.length) {
       this.body.createDiv({ cls: "rm-empty", text: tx("Noch keine Rohstoffe. Lege Mehl, Hefe, Butter … mit Preis und Lieferant an.") });
       return;
     }
     const t = this.body.createEl("table", { cls: "rm-table rm-table-wide" });
     const hr = t.createEl("thead").createEl("tr");
-    [tx("Rohstoff"), tx("Kategorie"), tx("Lieferant"), tx("Verpackung"), tx("Packungsgewicht"), tx("Preis"), tx("Preis / kg · Stk."), ""].forEach((h) => hr.createEl("th", { text: h }));
+    [tx("Rohstoff"), tx("Kategorie"), tx("Lieferant"), tx("Verpackung"), tx("Packungsgewicht"), tx("Preis"), tx("Preis / kg · Stk."), "usage", ""].forEach((h) => {
+      if (h !== "usage") { hr.createEl("th", { text: h }); return; }
+      const arrow = this.ingSort === "usage-desc" ? " ↓" : this.ingSort === "usage-asc" ? " ↑" : "";
+      const th = hr.createEl("th", { cls: "rm-num rm-sortable", text: tx("Verwendet") + arrow, attr: { title: tx("Nach Verwendung sortieren") } });
+      th.onclick = () => {
+        this.ingSort = this.ingSort === "name" ? "usage-desc" : this.ingSort === "usage-desc" ? "usage-asc" : "name";
+        this.renderIngredientRows();
+      };
+    });
     const tb = t.createEl("tbody");
     list.forEach((i) => {
       const tr = tb.createEl("tr");
@@ -1334,6 +1396,16 @@ class DashboardView extends ItemView {
       let per = "";
       if (pb) per = pb.kind === "mass" ? this.plugin.money(pb.perUnit * 1000) + tx(" / kg") : this.plugin.money(pb.perUnit) + tx(" / Stk.");
       tr.createEl("td", { cls: "rm-num rm-muted", text: per });
+      const ut = tr.createEl("td", { cls: "rm-num" });
+      if (!this.usage) ut.setText("…");
+      else {
+        const uses = this.usageFor(i.name);
+        if (!uses.length) { ut.createSpan({ cls: "rm-muted", text: "–", attr: { title: tx("Nicht verwendet") } }); tr.addClass("rm-unused"); }
+        else {
+          const ub = ut.createEl("button", { cls: "rm-chip rm-chip-btn", text: recipeCount(uses.length) });
+          ub.onclick = () => new UsageModal(this.app, this.plugin, i.name, uses).open();
+        }
+      }
       const act = tr.createEl("td", { cls: "rm-row-actions" });
       const mk = (icon, title, fn) => {
         const x = act.createEl("button", { cls: "rm-icon-btn", attr: { "aria-label": title } });
@@ -1366,12 +1438,12 @@ class ConfirmModal extends Modal {
 class VariantModal extends Modal {
   constructor(app, plugin, file) { super(app); this.plugin = plugin; this.file = file; }
   onOpen() {
-    this.titleEl.setText("Variante erstellen");
+    this.titleEl.setText(tx("Variante erstellen"));
     this.contentEl.createEl("p", { cls: "rm-muted", text: tx("Erstellt eine vollständige Kopie von „") + this.file.basename + tx("“ (Teile, Zutaten, Schritte, Fotos). Danach kannst du die Variante im Editor ändern; sie bleibt mit dem Original verknüpft.") });
     let title = this.file.basename + tx(" (Variante)"), open = true;
     new Setting(this.contentEl).setName(tx("Name der Variante")).addText((t) => { t.setValue(title); t.inputEl.addClass("rm-w100"); t.onChange((v) => (title = v)); setTimeout(() => { t.inputEl.focus(); t.inputEl.select(); }, 50); });
     new Setting(this.contentEl).setName(tx("Danach im Editor öffnen")).addToggle((t) => t.setValue(open).onChange((v) => (open = v)));
-    new Setting(this.contentEl).addButton((b) => b.setButtonText("Variante anlegen").setCta().onClick(async () => {
+    new Setting(this.contentEl).addButton((b) => b.setButtonText(tx("Variante anlegen")).setCta().onClick(async () => {
       try {
         const nf = await this.plugin.createVariant(this.file, title);
         this.close();
@@ -1386,7 +1458,7 @@ class ExportModal extends Modal {
   constructor(app, plugin, preselected) { super(app); this.plugin = plugin; this.pre = new Set((preselected || []).map((f) => f.path)); }
   onOpen() {
     this.modalEl.addClass("rm-modal-wide");
-    this.titleEl.setText("Rezepte exportieren");
+    this.titleEl.setText(tx("Rezepte exportieren"));
     const files = this.plugin.recipeFiles().sort((a, b) => a.path.localeCompare(b.path, LANG));
     this.sel = new Set(this.pre);
     const c = this.contentEl;
@@ -1462,7 +1534,7 @@ class ImportModal extends Modal {
   constructor(app, plugin) { super(app); this.plugin = plugin; this.bundle = null; }
   onOpen() {
     this.modalEl.addClass("rm-modal-wide");
-    this.titleEl.setText("Rezepte importieren");
+    this.titleEl.setText(tx("Rezepte importieren"));
     this.draw();
   }
   draw() {
@@ -1535,7 +1607,7 @@ class ImportModal extends Modal {
 class NewRecipeModal extends Modal {
   constructor(app, plugin) { super(app); this.plugin = plugin; }
   onOpen() {
-    this.titleEl.setText("Neues Rezept");
+    this.titleEl.setText(tx("Neues Rezept"));
     let title = "", cat = this.plugin.settings.categories[0] || tx("Backen");
     new Setting(this.contentEl).setName(tx("Titel")).addText((t) => { t.setPlaceholder(tx("z. B. Roggenbrot")); t.onChange((v) => (title = v)); setTimeout(() => t.inputEl.focus(), 50); });
     new Setting(this.contentEl).setName(tx("Kategorie")).addDropdown((d) => {
@@ -1547,7 +1619,43 @@ class NewRecipeModal extends Modal {
       this.close();
       this.plugin.openEditor(f);
     };
-    new Setting(this.contentEl).addButton((b) => b.setButtonText("Anlegen").setCta().onClick(go));
+    new Setting(this.contentEl).addButton((b) => b.setButtonText(tx("Anlegen")).setCta().onClick(go));
+  }
+}
+
+function recipeCount(n) { return n === 1 ? tx("1 Rezept") : n + tx(" Rezepte"); }
+function usedIn(n) { return n === 1 ? tx("Verwendet in 1 Rezept") : tx("Verwendet in ") + n + tx(" Rezepten"); }
+function usageAmount(plugin, u) {
+  const parts = [];
+  if (u.grams > 0) parts.push(plugin.weightText(u.grams));
+  u.amounts.forEach((a) => parts.push(a));
+  return parts.join(" + ");
+}
+function renderUsageList(el, plugin, uses, onNavigate) {
+  const list = el.createDiv("rm-usage-list");
+  uses.slice().sort((a, b) => a.title.localeCompare(b.title, LANG)).forEach((u) => {
+    const row = list.createDiv("rm-usage-row");
+    const a = row.createEl("a", { cls: "rm-usage-title", text: u.title, href: "#" });
+    a.onclick = (ev) => { ev.preventDefault(); if (onNavigate) onNavigate(); plugin.openNote(u.file); };
+    if (u.category) row.createSpan({ cls: "rm-chip", text: u.category });
+    row.createSpan({ cls: "rm-muted rm-usage-part", text: Array.from(new Set(u.parts)).join(", ") });
+    row.createSpan({ cls: "rm-num rm-usage-amount", text: usageAmount(plugin, u) });
+    const ed = row.createEl("button", { cls: "rm-icon-btn", attr: { "aria-label": tx("Bearbeiten") } });
+    setIcon(ed, "pencil");
+    ed.onclick = () => { if (onNavigate) onNavigate(); plugin.openEditor(u.file); };
+  });
+}
+
+class UsageModal extends Modal {
+  constructor(app, plugin, name, uses) { super(app); this.plugin = plugin; this.name = name; this.uses = uses; }
+  onOpen() {
+    this.modalEl.addClass("rm-modal-wide");
+    this.titleEl.setText(tx("Verwendung: ") + this.name);
+    const c = this.contentEl;
+    if (!this.uses.length) { c.createEl("p", { cls: "rm-muted", text: tx("Keine Rezepte verwenden diesen Rohstoff.") }); return; }
+    const total = this.uses.reduce((s, u) => s + u.grams, 0);
+    c.createEl("p", { text: usedIn(this.uses.length) + (total > 0 ? " · " + tx("Gesamt in allen Rezepten: ") + this.plugin.weightText(total) : "") });
+    renderUsageList(c, this.plugin, this.uses, () => this.close());
   }
 }
 
@@ -1564,17 +1672,31 @@ class IngredientModal extends Modal {
     const c = this.contentEl;
     const txt = (name, key, ph, desc) => new Setting(c).setName(name).setDesc(desc || "").addText((t) => { t.setPlaceholder(ph || "").setValue(String(v[key] || "")); t.onChange((x) => (v[key] = x)); });
     txt("Name", "name", tx("z. B. Weizenmehl W700"));
-    txt("Kategorie", "kategorie", tx("Mehl, Milchprodukte, Gewürze …"));
-    txt("Lieferant", "lieferant", tx("Name des Lieferanten"));
-    txt("Lieferanten-Homepage", "url", "https://…");
-    txt("Verpackungseinheit", "verpackung", tx("Sack, Karton, Eimer, Packung …"));
+    txt(tx("Kategorie"), "kategorie", tx("Mehl, Milchprodukte, Gewürze …"));
+    txt(tx("Lieferant"), "lieferant", tx("Name des Lieferanten"));
+    txt(tx("Lieferanten-Homepage"), "url", "https://…");
+    txt(tx("Verpackungseinheit"), "verpackung", tx("Sack, Karton, Eimer, Packung …"));
     new Setting(c).setName(tx("Verpackungsgewicht / -inhalt")).addText((t) => { t.setPlaceholder("25").setValue(v.gewicht ? String(v.gewicht).replace(".", ",") : ""); t.inputEl.addClass("rm-w90"); t.onChange((x) => (v.gewicht = parseNum(x))); })
       .addDropdown((d) => { packUnits().forEach((u) => d.addOption(u, u)); d.setValue(v.einheit); d.onChange((x) => (v.einheit = x)); });
     new Setting(c).setName(tx("Preis pro Verpackung")).setDesc(tx("in ") + this.plugin.settings.currency).addText((t) => { t.setPlaceholder("0,00").setValue(v.preis ? String(v.preis).replace(".", ",") : ""); t.inputEl.addClass("rm-w90"); t.onChange((x) => (v.preis = parseNum(x))); });
-    txt("Artikelnummer", "artikel");
-    txt("Allergene", "allergene", tx("z. B. Gluten, Milch, Ei"));
-    txt("Notiz", "notiz");
-    new Setting(c).addButton((b) => b.setButtonText("Speichern").setCta().onClick(async () => {
+    txt(tx("Artikelnummer"), "artikel");
+    txt(tx("Allergene"), "allergene", tx("z. B. Gluten, Milch, Ei"));
+    txt(tx("Notiz"), "notiz");
+    if (e) {
+      const box = c.createDiv("rm-usage-box");
+      box.createDiv({ cls: "rm-label", text: tx("Rezepte mit diesem Rohstoff") });
+      const holder = box.createDiv({ cls: "rm-muted", text: "…" });
+      this.plugin.usageIndex().then((idx) => {
+        const entry = idx.get(String(e.name).trim().toLowerCase());
+        const uses = entry ? Array.from(entry.values()) : [];
+        holder.empty();
+        if (!uses.length) { holder.setText(tx("Nicht verwendet")); return; }
+        holder.removeClass("rm-muted");
+        holder.createDiv({ cls: "rm-strong", text: usedIn(uses.length) });
+        renderUsageList(holder, this.plugin, uses, () => this.close());
+      });
+    }
+    new Setting(c).addButton((b) => b.setButtonText(tx("Speichern")).setCta().onClick(async () => {
       try { await this.plugin.saveIngredient(this.ex, v); this.close(); } catch (err) { new Notice(err.message); }
     }));
   }
@@ -1616,7 +1738,7 @@ class RecipeEditorView extends ItemView {
   /* --- Speichern --- */
   changed() { this.refresh(); this.scheduleSave(); }
   scheduleSave() {
-    if (this.status) this.status.setText("Ungespeichert …");
+    if (this.status) this.status.setText(tx("Ungespeichert …"));
     clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(() => this.flush(), 700);
   }
@@ -1626,7 +1748,7 @@ class RecipeEditorView extends ItemView {
     this.saveTimer = null;
     try {
       await this.plugin.saveRecipe(this.file, this.data);
-      if (this.status) this.status.setText("Gespeichert ✓");
+      if (this.status) this.status.setText(tx("Gespeichert ✓"));
       this.leaf.updateHeader && this.leaf.updateHeader();
     } catch (e) { new Notice(tx("Speichern fehlgeschlagen: ") + e.message); }
   }
@@ -1720,7 +1842,7 @@ class RecipeEditorView extends ItemView {
     setIcon(addPart.createSpan(), "plus");
     addPart.createSpan({ text: tx("Teil hinzufügen (z. B. Füllung)") });
     addPart.onclick = () => {
-      const np = newPart("Teil " + (d.parts.length + 1), "amount");
+      const np = newPart(tx("Teil ") + (d.parts.length + 1), "amount");
       np.baseRef = "total";
       np.ingredients.push(newIng());
       d.parts.push(np);
@@ -1752,8 +1874,8 @@ class RecipeEditorView extends ItemView {
       this.costTxt = l.createDiv({ cls: "rm-cost-main" });
       this.costSub = l.createDiv({ cls: "rm-muted" });
       this.updaters.push(() => {
-        if (this.cost == null) { this.costTxt.setText("Keine Kosten berechenbar"); this.costSub.setText("Lege Rohstoffe mit Preis an – Zutaten mit gleichem Namen werden automatisch zugeordnet."); return; }
-        this.costTxt.setText("Materialkosten: " + this.plugin.money(this.cost));
+        if (this.cost == null) { this.costTxt.setText(tx("Keine Kosten berechenbar")); this.costSub.setText(tx("Lege Rohstoffe mit Preis an – Zutaten mit gleichem Namen werden automatisch zugeordnet.")); return; }
+        this.costTxt.setText(tx("Materialkosten: ") + this.plugin.money(this.cost));
         const c = this.calc, y = d.yield, parts = [];
         if (c.pieces) parts.push(this.plugin.money(this.cost / c.pieces) + tx(" pro Stück"));
         if (y.mode === "portions" && y.portions) parts.push(this.plugin.money(this.cost / y.portions) + tx(" pro Portion"));
@@ -2078,7 +2200,7 @@ class RecipeEditorView extends ItemView {
     const sf = this.field(r3, tx("Alle Mengen mit Faktor multiplizieren"));
     const sin = sf.createEl("input", { cls: "rm-input rm-input-sm", type: "text", value: "2" });
     const sb = r3.createEl("button", { cls: "rm-btn" });
-    sb.setText("Anwenden");
+    sb.setText(tx("Anwenden"));
     sb.onclick = () => {
       const f = parseNum(sin.value);
       if (!(f > 0)) return new Notice(tx("Faktor > 0 eingeben"));
@@ -2111,7 +2233,7 @@ class RecipeEditorView extends ItemView {
     add.onclick = () => { d.params.push({ label: "", value: "" }); this.scheduleSave(); this.render(); };
     if (!d.params.length && catKind(d.category) === "bake") {
       const q = el.createEl("button", { cls: "rm-btn rm-btn-sm" });
-      q.setText("Standard-Backparameter einfügen");
+      q.setText(tx("Standard-Backparameter einfügen"));
       q.onclick = () => {
         [tx("Teigtemperatur"), tx("Teigruhe"), tx("Backtemperatur"), tx("Backzeit")].forEach((s) => d.params.push({ label: s, value: "" }));
         this.scheduleSave(); this.render();
@@ -2159,16 +2281,16 @@ class RMSettingTab extends PluginSettingTab {
       .addDropdown((d) => d.addOption("auto", tx("Automatisch (wie Obsidian)")).addOption("de", "Deutsch").addOption("en", "English").setValue(s.language || "auto")
         .onChange(async (v) => { s.language = v; setLang(v); await this.plugin.saveSettings(); this.display(); }));
     const text = (name, desc, key) => new Setting(c).setName(name).setDesc(desc).addText((t) => t.setValue(s[key]).onChange(async (v) => { s[key] = v.trim(); await this.plugin.saveSettings(); }));
-    text("Rezeptordner", tx("Hier werden neue Rezepte angelegt."), "recipeFolder");
-    text("Rohstoffordner", tx("Rohstoffe werden als Notizen mit Eigenschaften gespeichert."), "ingredientFolder");
-    text("Bilderordner", tx("Fotos von Endergebnis und Arbeitsschritten."), "imageFolder");
+    text(tx("Rezeptordner"), tx("Hier werden neue Rezepte angelegt."), "recipeFolder");
+    text(tx("Rohstoffordner"), tx("Rohstoffe werden als Notizen mit Eigenschaften gespeichert."), "ingredientFolder");
+    text(tx("Bilderordner"), tx("Fotos von Endergebnis und Arbeitsschritten."), "imageFolder");
     new Setting(c).setName(tx("Mengenanzeige (Prozent-Modus)")).setDesc(tx("Einheit für Mengen in Bäckerrezepten."))
       .addDropdown((d) => d.addOption("kg", tx("Kilogramm (0,470 kg)")).addOption("g", tx("Gramm (470 g)")).setValue(s.weightUnit).onChange(async (v) => { s.weightUnit = v; await this.plugin.saveSettings(); }));
-    text("Währungssymbol", "", "currency");
+    text(tx("Währungssymbol"), "", "currency");
     new Setting(c).setName(tx("Kosten anzeigen")).setDesc(tx("Materialkosten aus den Rohstoffpreisen berechnen."))
       .addToggle((t) => t.setValue(s.showCost).onChange(async (v) => { s.showCost = v; await this.plugin.saveSettings(); }));
     new Setting(c).setName(tx("Rezepte nach Kategorie sortieren")).setDesc(tx("Verschiebt alle vorhandenen Rezepte in Unterordner ihrer Kategorie."))
-      .addButton((b) => b.setButtonText("Jetzt sortieren").onClick(async () => { const n = await this.plugin.moveAllToCategoryFolders(); new Notice(n + tx(" Rezept(e) verschoben")); }));
+      .addButton((b) => b.setButtonText(tx("Jetzt sortieren")).onClick(async () => { const n = await this.plugin.moveAllToCategoryFolders(); new Notice(n + tx(" Rezept(e) verschoben")); }));
     new Setting(c).setName(tx("Kategorien")).setDesc(tx("Komma getrennt. Jede Kategorie bekommt einen Unterordner im Rezeptordner."))
       .addText((t) => t.setValue(s.categories.join(", ")).onChange(async (v) => {
         const l = v.split(",").map((x) => x.trim()).filter(Boolean);

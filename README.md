@@ -33,6 +33,7 @@ Recipes are normal notes in your vault, ingredients are normal notes with proper
 
 ### Ingredients and costs
 - Ingredient database: category, supplier **with website link**, packaging unit, package weight, price per package, article number, allergens.
+- **Where used:** see in how many recipes an ingredient is used, sort by usage, and jump from an ingredient to its recipes.
 - Price per kg / piece is calculated; recipes show **material cost** per recipe, per piece, per portion and per tray.
 
 ![Ingredients](https://raw.githubusercontent.com/MarioLung/obsidian-recipe-atelier/main/docs/screenshots/07-ingredients.png)

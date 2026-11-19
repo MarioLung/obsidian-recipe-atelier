@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.0
+- Ingredient → recipes: the ingredient list shows in how many recipes each ingredient is used (sortable column). Click the count to see the recipes with amounts and jump to the recipe or its editor.
+- The ingredient dialog lists the recipes that use the ingredient.
+- Fixed some remaining untranslated texts.
+
 ## 1.0.3
 - Added CONTRIBUTING.md (contribution guide). No functional changes.
 
